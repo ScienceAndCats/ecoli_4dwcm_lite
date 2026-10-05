@@ -1,0 +1,17 @@
+name: SuperHans
+
+cpu:
+  model: AMD Ryzen 9 9900X
+  cores_physical: 12
+  threads: 24
+
+memory:
+  ram_gb: 32
+
+gpu:
+  model: NVIDIA GeForce RTX 5070 Ti
+  vram_gb: 16
+  cuda: true
+
+platform:
+  architecture: x86_64
