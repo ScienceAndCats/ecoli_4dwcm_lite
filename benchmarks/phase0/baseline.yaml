@@ -1,0 +1,22 @@
+benchmark: michaelis_menten_lm
+date: 2026-10-05
+
+hardware:
+  cpu: AMD Ryzen 9 9900X
+  ram_gb: 32
+  gpu: NVIDIA GeForce RTX 5070 Ti
+  vram_gb: 16
+
+simulation:
+  biological_time_s: 10.0
+  timestep_ms: 1
+  lattice_write_interval: 10
+  species_write_interval: 1
+
+results:
+  wall_time_s: 14.05
+  peak_ram_mib: 280
+  peak_vram_mib: 1869
+  peak_gpu_utilization_percent: 6
+  average_gpu_utilization_percent: 4.18
+  output_file_mb: 59

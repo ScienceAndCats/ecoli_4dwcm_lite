@@ -1,0 +1,32 @@
+LOCUS       SYNTH0001                120 bp    DNA     circular BCT 01-JAN-2000
+DEFINITION  Synthetic bacterial chromosome for unit testing.
+ACCESSION   SYNTH0001
+VERSION     SYNTH0001.1
+KEYWORDS    .
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+            .
+FEATURES             Location/Qualifiers
+     source          1..120
+                     /organism="synthetic construct"
+                     /mol_type="genomic DNA"
+     gene            10..39
+                     /gene="geneA"
+                     /locus_tag="TEST_0001"
+     CDS             10..39
+                     /gene="geneA"
+                     /locus_tag="TEST_0001"
+                     /product="synthetic protein A"
+                     /protein_id="TEST_PROT_0001"
+     gene            complement(70..99)
+                     /gene="geneB"
+                     /locus_tag="TEST_0002"
+     CDS             complement(70..99)
+                     /gene="geneB"
+                     /locus_tag="TEST_0002"
+                     /product="synthetic protein B"
+                     /protein_id="TEST_PROT_0002"
+ORIGIN
+        1 atgcgatcga tcgatcgatc gatcgatcga tcgatcgatc gatcgatcga tcgatcgatc
+       61 gatcgatcga tcgatcgatc gatcgatcga tcgatcgatc gatcgatcga tcgatcgatc
+//

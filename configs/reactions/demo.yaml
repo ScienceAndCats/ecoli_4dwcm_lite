@@ -1,0 +1,57 @@
+reactions:
+
+  # example_mRNA can degrade
+  - name: example_mRNA_decay
+    type: decay
+    reactant: example_mRNA
+    rate_s: 0.2
+
+
+  # The same TF can also undergo a first-order conversion
+  - name: example_TF_conversion
+    type: conversion
+    reactant: example_TF
+    product: example_TF_product
+    rate_s: 0.1
+
+
+  # example_mRNA can ALSO be catalytically modified.
+  #
+  # This demonstrates a multi-function species:
+  # it can degrade OR participate in this reaction.
+  - name: example_mRNA_catalysis
+    type: catalytic
+    substrate: example_mRNA
+    catalyst: DnaA
+    product: example_mRNA_product
+    rate_M_inv_s: 100000.0
+
+
+  # example_TF can ALSO bind DnaA.
+  - name: example_binding
+    type: binding
+    reactant: example_TF
+    partner: DnaA
+    product: example_complex
+    rate_M_inv_s: 50000.0
+
+
+  # Complex dissociation.
+  - name: example_unbinding
+    type: unbinding
+    reactant: example_complex
+    product_a: example_TF
+    product_b: DnaA
+    rate_s: 0.2
+
+
+  # Hybrid particle + concentration-field reaction.
+  #
+  # A DnaA particle locally converts some ATP field into ADP.
+  # This is synthetic chemistry purely for testing the engine.
+  - name: example_particle_field
+    type: particle_field
+    particle: DnaA
+    field_substrate: ATP
+    field_product: ADP
+    rate_per_particle_s: 0.02

@@ -1,0 +1,42 @@
+Species:         12,000
+Total particles:100,000
+  0%|          | 0/1 [00:00<?, ?it/s]2026-10-10 14:11:50) Info: Using 20 processor(s) and 1 CUDA device(s) per process.
+2026-10-10 14:11:50) Info: Assigning 1.00 processor(s) and 1.00 CUDA device(s) per replicate.
+2026-10-10 14:11:50) Info: Data output thread running.
+2026-10-10 14:11:50) Info: Running mpd rdme simulation with 12000 species, 1 reactions, 1 site types for 1.000000e+00 s with tau 1.000000e-03. Writing species at 0.000000e+00 and lattice at 5.207204e-310 intervals
+2026-10-10 14:11:50) Info: Time is 1.00000000000000
+2026-10-10 14:11:50) Info: Lattice write time is 1.00000000000000, in steps is 1000
+2026-10-10 14:11:50) Info: Next lattice write time is 2000
+2026-10-10 14:11:50) Info: Data output thread finished.
+2026-10-10 14:11:50) Info: Simulation file closed.
+100%|##########| 1/1 [00:00<00:00,  1.94it/s]100%|##########| 1/1 [00:00<00:00,  1.94it/s]
+
+TIMING
+-----------------------------------
+Model construction: 0.518 s
+Saving model:       0.032 s
+GPU simulation:     0.519 s
+Total Python time:  1.069 s
+	Command being timed: "python lm_int_species_benchmark.py --species 12000 --particles 100000 -o int_species_scaling/species_12000.lm"
+	User time (seconds): 0.78
+	System time (seconds): 0.42
+	Percent of CPU this job got: 101%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.18
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 820952
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 92
+	Minor (reclaiming a frame) page faults: 204293
+	Voluntary context switches: 686
+	Involuntary context switches: 5
+	Swaps: 0
+	File system inputs: 7816
+	File system outputs: 13160
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

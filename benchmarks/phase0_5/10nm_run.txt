@@ -1,0 +1,43 @@
+  0%|          | 0/1 [00:00<?, ?it/s]2026-10-05 17:03:11) Info: Using 20 processor(s) and 1 CUDA device(s) per process.
+2026-10-05 17:03:11) Info: Assigning 1.00 processor(s) and 1.00 CUDA device(s) per replicate.
+2026-10-05 17:03:11) Info: Data output thread running.
+2026-10-05 17:03:11) Info: MPDRDME: Rng seed: top word 417392415, bottom word 1
+2026-10-05 17:03:11) Info: Running mpd rdme simulation with 1 species, 0 reactions, 1 site types for 5.000000e-01 s with tau 5.000000e-05. Writing species at 0.000000e+00 and lattice at 6.821668e-310 intervals
+2026-10-05 17:03:13) Info: Time is 0.05000000000000
+2026-10-05 17:03:17) Info: Time is 0.10000000000000
+2026-10-05 17:03:19) Info: Time is 0.15000000000000
+2026-10-05 17:03:20) Info: Time is 0.20000000000000
+2026-10-05 17:03:22) Info: Time is 0.25000000000000
+2026-10-05 17:03:23) Info: Time is 0.30000000000000
+2026-10-05 17:03:24) Info: Time is 0.35000000000000
+2026-10-05 17:03:26) Info: Time is 0.40000000000000
+2026-10-05 17:03:27) Info: Time is 0.45000000000000
+2026-10-05 17:03:29) Info: Time is 0.50000000000000
+2026-10-05 17:03:29) Info: Lattice write time is 0.50000000000000, in steps is 10000
+2026-10-05 17:03:29) Info: Next lattice write time is 20000
+2026-10-05 17:03:29) Info: Data output thread finished.
+2026-10-05 17:03:29) Info: Simulation file closed.
+100%|##########| 1/1 [00:17<00:00, 17.93s/it]100%|##########| 1/1 [00:17<00:00, 17.93s/it]
+	Command being timed: "python benchmark_10nm.py -o 10nm_test.lm"
+	User time (seconds): 18.06
+	System time (seconds): 0.91
+	Percent of CPU this job got: 94%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:20.03
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1181852
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 92
+	Minor (reclaiming a frame) page faults: 439427
+	Voluntary context switches: 982
+	Involuntary context switches: 24
+	Swaps: 0
+	File system inputs: 7920
+	File system outputs: 5552
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

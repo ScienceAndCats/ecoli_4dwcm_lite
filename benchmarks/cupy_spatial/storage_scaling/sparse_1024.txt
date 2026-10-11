@@ -1,0 +1,49 @@
+
+CONFIGURATION
+--------------------------------------
+Mode:                 sparse
+Voxel size:           50.0 nm
+Grid:                 50 x 20 x 20
+Bounding voxels:      20,000
+Cell voxels:          10,792
+Species:              1,024
+Molecules:            250,000
+Timestep:             208.33 us
+Benchmark steps:      100
+
+RESULTS
+--------------------------------------
+Allocation time:       0.003 s
+Raw sparse state:      1.67 MiB
+CuPy memory used:      7.85 MiB
+CuPy memory reserved:  18.85 MiB
+
+Diffusion/update:      0.0088 ms
+Decay marking/update:  0.0200 ms
+Occupancy-index build: 59.8133 ms
+
+Occupied species/voxel pairs: 246,680
+Living molecules:      249,456
+	Command being timed: "python lowcopy_storage_benchmark.py --mode sparse --spacing-nm 50 --species 1024 --molecules 250000 --steps 100"
+	User time (seconds): 1.35
+	System time (seconds): 0.20
+	Percent of CPU this job got: 277%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.56
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 562704
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 249
+	Minor (reclaiming a frame) page faults: 103201
+	Voluntary context switches: 861
+	Involuntary context switches: 27
+	Swaps: 0
+	File system inputs: 35040
+	File system outputs: 0
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

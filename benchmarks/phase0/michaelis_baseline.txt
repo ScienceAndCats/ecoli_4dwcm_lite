@@ -1,0 +1,8 @@
+Michaelis-Menten LM GPU baseline
+--------------------------------
+Wall time:       14.05 s
+Peak RAM:        ~280 MiB
+Peak GPU VRAM:   ~1.87 GiB total (~40 MiB above idle)
+Peak GPU util:   6%
+Average GPU util:4.2%
+Output:          59 MB

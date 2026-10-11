@@ -1,0 +1,48 @@
+species:
+
+  ATP:
+    representation: field
+    diffusion_um2_s: 0.5
+    initial_concentration_mM: 3.0
+
+  ADP:
+    representation: field
+    diffusion_um2_s: 0.5
+    initial_concentration_mM: 0.5
+
+  glucose:
+    representation: field
+    diffusion_um2_s: 0.6
+    initial_concentration_mM: 1.0
+
+
+  DnaA:
+    representation: particle
+    diffusion_um2_s: 0.3
+    initial_count: 300
+
+  example_mRNA:
+    representation: particle
+    diffusion_um2_s: 0.05
+    initial_count: 25
+
+  example_TF:
+    representation: particle
+    diffusion_um2_s: 0.2
+    initial_count: 100
+
+
+  example_mRNA_product:
+    representation: particle
+    diffusion_um2_s: 0.05
+    initial_count: 0
+
+  example_TF_product:
+    representation: particle
+    diffusion_um2_s: 0.2
+    initial_count: 0
+
+  example_complex:
+    representation: particle
+    diffusion_um2_s: 0.15
+    initial_count: 0

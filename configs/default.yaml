@@ -1,3 +1,68 @@
-compute:
-  hardware_profile: superhans
-  estimate_before_run: true
+simulation:
+  seed: 12345
+  biological_duration_s: 10.0
+
+
+biology:
+  species_file: configs/species/demo.yaml
+  reactions_file: configs/reactions/demo.yaml
+
+  genome_file: data/genomes/ecoli_k12_mg1655/GCF_000005845.2_ASM584v2_genomic.gbff
+
+
+spatial:
+  voxel_size_nm: 50.0
+
+  cell_length_um: 2.4
+  cell_diameter_um: 0.9
+
+  max_total_hop_probability: 0.5
+
+
+chromosome:
+  # Fraction of the cell length occupied by the coarse
+  # chromosome scaffold.
+  nucleoid_length_fraction: 0.80
+
+  # Fraction of the cell radius used by the scaffold.
+  nucleoid_radius_fraction: 0.50
+
+  # Adds some 3D structure to the otherwise elliptical loop.
+  # This is not intended as a biological chromosome model.
+  scaffold_waves: 4.0
+
+  # Temporary promoter anchor until real promoter/TSS
+  # annotations are loaded.
+  promoter_upstream_bp: 40
+
+
+particles:
+  primary_slots_per_voxel: 128
+  spill_slots_per_voxel: 64
+
+
+fields:
+  dtype: float32
+
+
+scheduler:
+  reaction_interval_ms: 1.0
+
+
+output:
+  directory: outputs/default_run
+
+  analysis_interval_s: 1.0
+  checkpoint_interval_s: 60.0
+
+  checkpoint_compression: false
+
+  analysis_fields:
+    - ATP
+    - ADP
+    - glucose
+
+  analysis_particles:
+    - DnaA
+    - example_mRNA
+    - example_TF

@@ -1,0 +1,53 @@
+  0%|          | 0/1 [00:00<?, ?it/s]2026-10-05 15:54:36) Info: Using 20 processor(s) and 1 CUDA device(s) per process.
+2026-10-05 15:54:36) Info: Assigning 1.00 processor(s) and 1.00 CUDA device(s) per replicate.
+2026-10-05 15:54:36) Info: Data output thread running.
+2026-10-05 15:54:36) Info: MPDRDME: Rng seed: top word 3796180410, bottom word 1
+2026-10-05 15:54:36) Info: Running mpd rdme simulation with 1 species, 0 reactions, 1 site types for 1.000000e+01 s with tau 1.000000e-03. Writing species at 0.000000e+00 and lattice at 6.245165e-310 intervals
+2026-10-05 15:54:37) Warning: 104 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 1.00000000000000
+2026-10-05 15:54:37) Warning: 104 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 2.00000000000000
+2026-10-05 15:54:37) Warning: 103 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 3.00000000000000
+2026-10-05 15:54:37) Warning: 101 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 4.00000000000000
+2026-10-05 15:54:37) Warning: 112 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 5.00000000000000
+2026-10-05 15:54:37) Warning: 101 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 6.00000000000000
+2026-10-05 15:54:37) Warning: 107 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 7.00000000000000
+2026-10-05 15:54:37) Warning: 116 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 8.00000000000000
+2026-10-05 15:54:37) Warning: 117 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 9.00000000000000
+2026-10-05 15:54:37) Warning: 112 uses of the particle overflow list in the last 1000 timesteps, performance may be degraded.
+2026-10-05 15:54:37) Info: Time is 10.00000000000000
+2026-10-05 15:54:37) Info: Lattice write time is 10.00000000000000, in steps is 10000
+2026-10-05 15:54:37) Info: Next lattice write time is 20000
+2026-10-05 15:54:37) Info: Data output thread finished.
+2026-10-05 15:54:37) Info: Simulation file closed.
+100%|##########| 1/1 [00:00<00:00,  1.38it/s]100%|##########| 1/1 [00:00<00:00,  1.38it/s]
+	Command being timed: "python benchmark_50nm.py -n 250000 -o particle_scaling/250000.lm"
+	User time (seconds): 0.83
+	System time (seconds): 0.12
+	Percent of CPU this job got: 97%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.98
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 243528
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 94
+	Minor (reclaiming a frame) page faults: 56724
+	Voluntary context switches: 645
+	Involuntary context switches: 6
+	Swaps: 0
+	File system inputs: 7992
+	File system outputs: 872
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
