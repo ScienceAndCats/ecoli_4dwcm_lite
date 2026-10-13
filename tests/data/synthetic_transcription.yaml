@@ -1,0 +1,21 @@
+transcription:
+
+  rnap_species: RNAP
+
+  max_active_complexes: 64
+  max_mrna_molecules: 128
+
+  default_elongation_bp_per_s: 1000.0
+
+  # Very short purely so degradation is easy to observe
+  # during the unit test.
+  default_mrna_half_life_s: 0.05
+
+
+  templates:
+
+    - locus_tag: TEST_0001
+      rnap_association_rate_M_inv_s: 1000000000.0
+
+    - locus_tag: TEST_0002
+      rnap_association_rate_M_inv_s: 1000000000.0

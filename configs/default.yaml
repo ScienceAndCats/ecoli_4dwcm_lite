@@ -9,6 +9,9 @@ biology:
 
   genome_file: data/genomes/ecoli_k12_mg1655/GCF_000005845.2_ASM584v2_genomic.gbff
 
+  regulation_file: configs/regulation/demo.yaml
+  transcription_file: configs/transcription/demo.yaml
+
 
 spatial:
   voxel_size_nm: 50.0
@@ -20,20 +23,25 @@ spatial:
 
 
 chromosome:
-  # Fraction of the cell length occupied by the coarse
-  # chromosome scaffold.
   nucleoid_length_fraction: 0.80
-
-  # Fraction of the cell radius used by the scaffold.
   nucleoid_radius_fraction: 0.50
-
-  # Adds some 3D structure to the otherwise elliptical loop.
-  # This is not intended as a biological chromosome model.
   scaffold_waves: 4.0
 
-  # Temporary promoter anchor until real promoter/TSS
-  # annotations are loaded.
   promoter_upstream_bp: 40
+
+  dna_occupancy_segment_bp: 5000
+  dna_volume_per_bp_nm3: 1.07
+
+
+crowding:
+
+  # accessibility = free_fraction ^ movement_exponent
+  #
+  # 1.0 gives a linear relationship.
+  #
+  # This is deliberately configurable because later we may
+  # calibrate the relationship against experimental data.
+  movement_exponent: 1.0
 
 
 particles:

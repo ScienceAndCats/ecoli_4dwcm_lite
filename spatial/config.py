@@ -52,7 +52,16 @@ class ChromosomeConfig:
     nucleoid_length_fraction: float
     nucleoid_radius_fraction: float
     scaffold_waves: float
+
     promoter_upstream_bp: int
+
+    dna_occupancy_segment_bp: int
+    dna_volume_per_bp_nm3: float
+
+
+@dataclass(frozen=True)
+class CrowdingConfig:
+    movement_exponent: float
 
 
 @dataclass(frozen=True)
@@ -95,7 +104,10 @@ class OutputConfig:
 class BiologyConfig:
     species_file: str
     reactions_file: str
+
     genome_file: str
+    regulation_file: str
+    transcription_file: str
 
 
 @dataclass(frozen=True)
@@ -106,6 +118,7 @@ class SimulationConfig:
     biology: BiologyConfig
     spatial: SpatialConfig
     chromosome: ChromosomeConfig
+    crowding: CrowdingConfig
     particles: ParticleConfig
     fields: FieldConfig
     scheduler: SchedulerConfig
@@ -139,6 +152,14 @@ def load_config(path) -> SimulationConfig:
 
             genome_file=str(
                 raw["biology"]["genome_file"]
+            ),
+
+            regulation_file=str(
+                raw["biology"]["regulation_file"]
+            ),
+
+            transcription_file=str(
+                raw["biology"]["transcription_file"]
             ),
         ),
 
@@ -186,6 +207,26 @@ def load_config(path) -> SimulationConfig:
                     "promoter_upstream_bp"
                 ]
             ),
+
+            dna_occupancy_segment_bp=int(
+                raw["chromosome"][
+                    "dna_occupancy_segment_bp"
+                ]
+            ),
+
+            dna_volume_per_bp_nm3=float(
+                raw["chromosome"][
+                    "dna_volume_per_bp_nm3"
+                ]
+            ),
+        ),
+
+        crowding=CrowdingConfig(
+            movement_exponent=float(
+                raw["crowding"][
+                    "movement_exponent"
+                ]
+            )
         ),
 
         particles=ParticleConfig(

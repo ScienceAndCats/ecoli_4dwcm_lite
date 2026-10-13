@@ -1,0 +1,23 @@
+species:
+
+  ATP:
+    representation: field
+    diffusion_um2_s: 0.5
+    initial_concentration_mM: 3.0
+
+
+  example_TF:
+    representation: particle
+    diffusion_um2_s: 0.2
+    initial_count: 100
+
+
+  Ribosome:
+    representation: voxel_count
+    diffusion_um2_s: 0.05
+
+    # Deliberately large enough to demonstrate why this
+    # representation is useful.
+    #
+    # This is a test value, not our final E. coli calibration.
+    initial_count: 20000

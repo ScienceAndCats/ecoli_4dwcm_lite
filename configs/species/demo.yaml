@@ -32,6 +32,17 @@ species:
     initial_count: 100
 
 
+  # Free RNA polymerase.
+  #
+  # This is a demo count, not our final biological
+  # calibration for E. coli.
+
+  RNAP:
+    representation: particle
+    diffusion_um2_s: 0.15
+    initial_count: 250
+
+
   example_mRNA_product:
     representation: particle
     diffusion_um2_s: 0.05

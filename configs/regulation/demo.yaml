@@ -1,0 +1,25 @@
+binding_sites:
+
+  # Synthetic regulatory interaction used to exercise the
+  # binding machinery against a real E. coli promoter position.
+
+  - site_id: demo_thrA_example_TF
+
+    promoter_locus_tag: b0002
+
+    tf: example_TF
+
+    association_rate_M_inv_s: 10000000.0
+    dissociation_rate_s: 1.0
+
+
+  # A second independent promoter target for the same TF.
+
+  - site_id: demo_yaaA_example_TF
+
+    promoter_locus_tag: b0006
+
+    tf: example_TF
+
+    association_rate_M_inv_s: 10000000.0
+    dissociation_rate_s: 1.0

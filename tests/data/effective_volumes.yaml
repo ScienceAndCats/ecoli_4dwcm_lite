@@ -1,0 +1,22 @@
+effective_volumes:
+
+  species:
+
+    # Synthetic/testing values.
+    #
+    # These are NOT our final biological calibration.
+
+    example_TF:
+      effective_volume_nm3: 100.0
+
+    Ribosome:
+      effective_volume_nm3: 8000.0
+
+
+  complexes:
+
+    test_transcription_complex:
+      effective_volume_nm3: 1000.0
+
+    test_translation_complex:
+      effective_volume_nm3: 8500.0

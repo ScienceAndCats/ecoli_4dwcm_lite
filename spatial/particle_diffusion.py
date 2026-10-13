@@ -6,19 +6,11 @@ import cupy as cp
 import numpy as np
 
 from spatial.config import SpatialConfig
+from spatial.crowding import CrowdingState
 from spatial.particles import ParticleState
 
 
 class ParticleDiffusion:
-    """
-    GPU particle-diffusion controller.
-
-    Each particle species has its own diffusion coefficient.
-
-    The global base timestep is supplied by SimulationEngine
-    and is constrained by the fastest species in the loaded
-    biological model.
-    """
 
     THREADS = 256
 
@@ -29,9 +21,12 @@ class ParticleDiffusion:
         spatial_config: SpatialConfig,
         base_dt_s: float,
         seed: int,
+        crowding_state: CrowdingState | None = None,
+        effective_volumes=None,
     ):
 
         self.state = particle_state
+
         self.spatial = spatial_config
 
         self.base_dt_s = float(
@@ -45,13 +40,36 @@ class ParticleDiffusion:
         self.step_count = 0
 
 
+        self.crowding_state = (
+            crowding_state
+        )
+
+
+        if (
+            crowding_state is not None
+            and crowding_state.cell_voxels
+            != particle_state.cell_voxels
+        ):
+
+            raise ValueError(
+                "Crowding and particle states "
+                "use different spatial grids."
+            )
+
+
+        self.effective_volumes = (
+            effective_volumes
+        )
+
+
         # ====================================================
-        # Build per-species hop probabilities
+        # Diffusion probabilities
         # ====================================================
 
         self.direction_probability_cpu = (
             self._build_direction_probabilities()
         )
+
 
         self.direction_probability = cp.asarray(
             self.direction_probability_cpu
@@ -59,7 +77,62 @@ class ParticleDiffusion:
 
 
         # ====================================================
-        # Runtime counters
+        # Particle effective-volume lookup
+        #
+        # ID 0 is the empty slot and therefore volume zero.
+        # ====================================================
+
+        if (
+            effective_volumes
+            is not None
+        ):
+
+            volume_lut = np.asarray(
+                effective_volumes
+                .particle_volume_lut_nm3,
+
+                dtype=np.float32,
+            )
+
+
+            expected = (
+                self.state.registry
+                .particle_count
+                + 1
+            )
+
+
+            if (
+                volume_lut.shape
+                != (
+                    expected,
+                )
+            ):
+
+                raise ValueError(
+                    "Particle effective-volume lookup "
+                    "does not match particle registry."
+                )
+
+
+            self.species_volume_nm3 = cp.asarray(
+                volume_lut
+            )
+
+
+        else:
+
+            self.species_volume_nm3 = cp.zeros(
+                self.state.registry
+                .particle_count
+                + 1,
+
+                dtype=cp.float32,
+            )
+
+
+        # ====================================================
+        # Diagnostics
         # ====================================================
 
         self.spill_writes = cp.zeros(
@@ -67,10 +140,12 @@ class ParticleDiffusion:
             dtype=cp.uint64,
         )
 
-        self.rejected_moves = cp.zeros(
+
+        self.slot_rejected_moves = cp.zeros(
             1,
             dtype=cp.uint64,
         )
+
 
         self.hard_overflow = cp.zeros(
             1,
@@ -78,8 +153,42 @@ class ParticleDiffusion:
         )
 
 
+        self.crowding_rejections = cp.zeros(
+            1,
+            dtype=cp.uint64,
+        )
+
+
+        self.capacity_rejections = cp.zeros(
+            1,
+            dtype=cp.uint64,
+        )
+
+
         # ====================================================
-        # Compile/load CUDA kernels
+        # Physical-volume reservation buffer
+        # ====================================================
+
+        self.reserved_incoming_nm3 = cp.zeros(
+            self.state.cell_voxels,
+            dtype=cp.float32,
+        )
+
+
+        self._dummy_accessibility = cp.ones(
+            1,
+            dtype=cp.float32,
+        )
+
+
+        self._dummy_occupied_volume = cp.zeros(
+            1,
+            dtype=cp.float32,
+        )
+
+
+        # ====================================================
+        # CUDA
         # ====================================================
 
         kernel_path = (
@@ -88,20 +197,22 @@ class ParticleDiffusion:
             / "particle_diffusion.cu"
         )
 
-        source = kernel_path.read_text()
 
         module = cp.RawModule(
-            code=source,
+            code=kernel_path.read_text(),
+
             options=(
                 "--std=c++11",
             ),
         )
+
 
         self._diffuse_primary = (
             module.get_function(
                 "diffuse_primary"
             )
         )
+
 
         self._diffuse_spill = (
             module.get_function(
@@ -111,14 +222,17 @@ class ParticleDiffusion:
 
 
     # ========================================================
-    # Per-species probabilities
+    # Diffusion probabilities
     # ========================================================
 
     def _build_direction_probabilities(
         self,
     ):
 
-        registry = self.state.registry
+        registry = (
+            self.state.registry
+        )
+
 
         probabilities = np.zeros(
             registry.particle_count + 1,
@@ -126,16 +240,15 @@ class ParticleDiffusion:
         )
 
 
-        dx_um = (
-            self.spatial.voxel_size_um
-        )
-
         dx_squared = (
-            dx_um ** 2
+            self.spatial.voxel_size_um
+            ** 2
         )
 
 
-        for species in registry.particle_species:
+        for species in (
+            registry.particle_species
+        ):
 
             q = (
                 species.diffusion_um2_s
@@ -144,24 +257,18 @@ class ParticleDiffusion:
             )
 
 
-            total_probability = (
-                6.0 * q
-            )
-
-
             if (
-                total_probability
+                6.0 * q
                 >
-                self.spatial.max_total_hop_probability
+                self.spatial
+                .max_total_hop_probability
                 + 1e-6
             ):
 
                 raise ValueError(
-                    f"Particle species {species.name} "
-                    f"has total hop probability "
-                    f"{total_probability:.6f}, exceeding "
-                    f"configured maximum "
-                    f"{self.spatial.max_total_hop_probability:.6f}."
+                    f"Particle species "
+                    f"{species.name} exceeds "
+                    "maximum hop probability."
                 )
 
 
@@ -174,7 +281,7 @@ class ParticleDiffusion:
 
 
     # ========================================================
-    # Kernel launch helpers
+    # Launch helper
     # ========================================================
 
     @classmethod
@@ -196,23 +303,86 @@ class ParticleDiffusion:
 
 
     # ========================================================
-    # One diffusion timestep
+    # One diffusion step
     # ========================================================
 
-    def step(self):
+    def step(
+        self,
+    ):
 
-        state = self.state
+        state = (
+            self.state
+        )
 
-
-        # Destination arrays must start empty.
 
         state.clear_next()
+
+
+        self.reserved_incoming_nm3.fill(
+            0
+        )
+
+
+        # ====================================================
+        # Crowding data
+        # ====================================================
+
+        if (
+            self.crowding_state
+            is not None
+        ):
+
+            accessibility = (
+                self.crowding_state
+                .refresh_movement_accessibility()
+            )
+
+
+            occupied_volume = (
+                self.crowding_state
+                .total_volume_nm3
+            )
+
+
+            voxel_volume_nm3 = float(
+                self.crowding_state
+                .voxel_volume_nm3
+            )
+
+
+            use_crowding = 1
+
+
+        else:
+
+            accessibility = (
+                self._dummy_accessibility
+            )
+
+
+            occupied_volume = (
+                self._dummy_occupied_volume
+            )
+
+
+            voxel_volume_nm3 = 0.0
+
+            use_crowding = 0
+
+
+        use_capacity = int(
+            self.crowding_state
+            is not None
+            and self.effective_volumes
+            is not None
+        )
 
 
         primary_total = (
             state.cell_voxels
             * state.primary_slots
         )
+
 
         spill_total = (
             state.cell_voxels
@@ -221,7 +391,7 @@ class ParticleDiffusion:
 
 
         # ====================================================
-        # Diffuse primary particles
+        # Primary
         # ====================================================
 
         self._diffuse_primary(
@@ -243,13 +413,27 @@ class ParticleDiffusion:
                 state.spill_next,
                 state.spill_occupancy_next,
 
-                state.grid.neighbors_gpu.reshape(-1),
+                state.grid
+                .neighbors_gpu
+                .reshape(
+                    -1
+                ),
 
                 self.direction_probability,
 
+                accessibility,
+
+                self.species_volume_nm3,
+
+                occupied_volume,
+
+                self.reserved_incoming_nm3,
+
                 self.spill_writes,
-                self.rejected_moves,
+                self.slot_rejected_moves,
                 self.hard_overflow,
+                self.crowding_rejections,
+                self.capacity_rejections,
 
                 np.int32(
                     state.primary_slots
@@ -261,6 +445,18 @@ class ParticleDiffusion:
 
                 np.int64(
                     state.cell_voxels
+                ),
+
+                np.float32(
+                    voxel_volume_nm3
+                ),
+
+                np.int32(
+                    use_crowding
+                ),
+
+                np.int32(
+                    use_capacity
                 ),
 
                 np.uint64(
@@ -275,10 +471,12 @@ class ParticleDiffusion:
 
 
         # ====================================================
-        # Diffuse spill particles
+        # Spill
         # ====================================================
 
-        if state.spill_slots > 0:
+        if (
+            state.spill_slots > 0
+        ):
 
             self._diffuse_spill(
                 self._blocks(
@@ -299,13 +497,27 @@ class ParticleDiffusion:
                     state.spill_next,
                     state.spill_occupancy_next,
 
-                    state.grid.neighbors_gpu.reshape(-1),
+                    state.grid
+                    .neighbors_gpu
+                    .reshape(
+                        -1
+                    ),
 
                     self.direction_probability,
 
+                    accessibility,
+
+                    self.species_volume_nm3,
+
+                    occupied_volume,
+
+                    self.reserved_incoming_nm3,
+
                     self.spill_writes,
-                    self.rejected_moves,
+                    self.slot_rejected_moves,
                     self.hard_overflow,
+                    self.crowding_rejections,
+                    self.capacity_rejections,
 
                     np.int32(
                         state.primary_slots
@@ -319,6 +531,18 @@ class ParticleDiffusion:
                         state.cell_voxels
                     ),
 
+                    np.float32(
+                        voxel_volume_nm3
+                    ),
+
+                    np.int32(
+                        use_crowding
+                    ),
+
+                    np.int32(
+                        use_capacity
+                    ),
+
                     np.uint64(
                         self.seed
                     ),
@@ -329,8 +553,6 @@ class ParticleDiffusion:
                 ),
             )
 
-
-        # New state becomes current state.
 
         state.swap_buffers()
 
@@ -347,13 +569,16 @@ class ParticleDiffusion:
     ):
 
         if steps < 0:
+
             raise ValueError(
                 "steps must be >= 0"
             )
 
+
         for _ in range(
             steps
         ):
+
             self.step()
 
 
@@ -375,7 +600,7 @@ class ParticleDiffusion:
     def rejected_move_count(self):
 
         return int(
-            self.rejected_moves[
+            self.slot_rejected_moves[
                 0
             ].item()
         )
@@ -391,9 +616,34 @@ class ParticleDiffusion:
         )
 
 
+    @property
+    def crowding_rejection_count(self):
+
+        return int(
+            self.crowding_rejections[
+                0
+            ].item()
+        )
+
+
+    @property
+    def capacity_rejection_count(self):
+
+        return int(
+            self.capacity_rejections[
+                0
+            ].item()
+        )
+
+
+    # ========================================================
+    # Validation
+    # ========================================================
+
     def validate(self):
 
         self.state.validate()
+
 
         if (
             self.hard_overflow_count
@@ -406,8 +656,21 @@ class ParticleDiffusion:
                 "hard overflow events."
             )
 
+
+        if (
+            self.crowding_state
+            is not None
+        ):
+
+            self.crowding_state.validate()
+
+
         return True
 
+
+    # ========================================================
+    # Summary
+    # ========================================================
 
     def describe(self):
 
@@ -415,25 +678,42 @@ class ParticleDiffusion:
         print("PARTICLE DIFFUSION")
         print("--------------------------------------------")
 
+
         print(
             f"Completed diffusion steps:  "
             f"{self.step_count:,}"
         )
+
 
         print(
             f"Diffusion timestep:         "
             f"{self.base_dt_s * 1e6:.2f} us"
         )
 
+
         print(
             f"Spill writes:               "
             f"{self.spill_write_count:,}"
         )
 
+
         print(
-            f"Rejected full-voxel moves:  "
+            f"Slot-capacity rejects:      "
             f"{self.rejected_move_count:,}"
         )
+
+
+        print(
+            f"Crowding-rejected moves:    "
+            f"{self.crowding_rejection_count:,}"
+        )
+
+
+        print(
+            f"Physical-capacity rejects:  "
+            f"{self.capacity_rejection_count:,}"
+        )
+
 
         print(
             f"Hard overflow events:       "

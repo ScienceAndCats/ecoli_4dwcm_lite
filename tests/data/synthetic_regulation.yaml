@@ -1,0 +1,10 @@
+binding_sites:
+
+  - site_id: test_geneA_tf
+
+    promoter_locus_tag: TEST_0001
+
+    tf: example_TF
+
+    association_rate_M_inv_s: 100000000.0
+    dissociation_rate_s: 20.0

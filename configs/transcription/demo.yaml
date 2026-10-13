@@ -1,0 +1,24 @@
+transcription:
+
+  rnap_species: RNAP
+
+  max_active_complexes: 512
+
+  # Maximum number of individual mRNA molecules that can
+  # exist simultaneously in this demo.
+  max_mrna_molecules: 4096
+
+  default_elongation_bp_per_s: 50.0
+
+  # Placeholder degradation lifetime for now.
+  # Gene-specific measured values can replace this later.
+  default_mrna_half_life_s: 180.0
+
+
+  templates:
+
+    - locus_tag: b0002
+      rnap_association_rate_M_inv_s: 10000000.0
+
+    - locus_tag: b0006
+      rnap_association_rate_M_inv_s: 10000000.0

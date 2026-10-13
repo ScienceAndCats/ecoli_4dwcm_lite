@@ -8,6 +8,7 @@ import yaml
 class Representation(str, Enum):
     PARTICLE = "particle"
     FIELD = "field"
+    VOXEL_COUNT = "voxel_count"
 
 
 @dataclass(frozen=True)
@@ -18,21 +19,34 @@ class Species:
 
     diffusion_um2_s: float
 
-    # Particle species
+    # Used by:
+    #
+    #   particle
+    #   voxel_count
+    #
+    # but not continuous concentration fields.
     initial_count: int | None = None
 
-    # Field species
+    # Continuous concentration-field species.
     initial_concentration_mM: float | None = None
 
-    # Numeric ID within its own representation.
+
+    # ========================================================
+    # Numeric IDs
     #
-    # Particle ID 0 is deliberately reserved for an empty
-    # particle slot, so real particle IDs start at 1.
+    # Each representation has its own ID namespace.
+    # ========================================================
+
+    # Particle ID 0 is reserved for an empty particle slot.
+    #
+    # Real particle species therefore start at 1.
     particle_id: int | None = None
 
-    # Field arrays don't need an empty sentinel, so field IDs
-    # can start at 0.
+    # Field IDs start at 0.
     field_id: int | None = None
+
+    # Voxel-count IDs also start at 0.
+    voxel_count_id: int | None = None
 
 
 class SpeciesRegistry:
@@ -43,29 +57,47 @@ class SpeciesRegistry:
 
         self._particles = []
         self._fields = []
+        self._voxel_counts = []
 
 
     @classmethod
-    def from_yaml(cls, path):
+    def from_yaml(
+        cls,
+        path,
+    ):
 
-        path = Path(path)
+        path = Path(
+            path
+        )
 
-        with path.open("r") as handle:
-            raw = yaml.safe_load(handle)
+
+        with path.open(
+            "r"
+        ) as handle:
+
+            raw = yaml.safe_load(
+                handle
+            )
+
 
         registry = cls()
+
 
         species_data = raw.get(
             "species",
             {}
         )
 
-        for name, definition in species_data.items():
+
+        for name, definition in (
+            species_data.items()
+        ):
 
             registry.add_from_definition(
                 name=name,
                 definition=definition,
             )
+
 
         return registry
 
@@ -84,56 +116,91 @@ class SpeciesRegistry:
 
 
         representation = Representation(
-            definition["representation"]
+            definition[
+                "representation"
+            ]
         )
+
 
         diffusion = float(
-            definition["diffusion_um2_s"]
+            definition[
+                "diffusion_um2_s"
+            ]
         )
 
 
+        if diffusion < 0:
+
+            raise ValueError(
+                f"{name}: diffusion_um2_s "
+                "cannot be negative"
+            )
+
+
         # ====================================================
-        # Particle species
+        # Explicit particle species
         # ====================================================
 
-        if representation is Representation.PARTICLE:
+        if (
+            representation
+            is Representation.PARTICLE
+        ):
 
             if (
                 "initial_concentration_mM"
                 in definition
             ):
+
                 raise ValueError(
                     f"{name}: particle species cannot define "
-                    f"initial_concentration_mM"
+                    "initial_concentration_mM"
                 )
+
 
             initial_count = int(
                 definition.get(
                     "initial_count",
-                    0
+                    0,
                 )
             )
+
 
             if initial_count < 0:
 
                 raise ValueError(
-                    f"{name}: initial_count cannot be negative"
+                    f"{name}: initial_count "
+                    "cannot be negative"
                 )
 
 
-            # ID 0 is reserved for empty particle slots.
             particle_id = (
-                len(self._particles)
+                len(
+                    self._particles
+                )
                 + 1
             )
 
+
             species = Species(
                 name=name,
-                representation=representation,
-                diffusion_um2_s=diffusion,
-                initial_count=initial_count,
-                particle_id=particle_id,
+
+                representation=(
+                    representation
+                ),
+
+                diffusion_um2_s=(
+                    diffusion
+                ),
+
+                initial_count=(
+                    initial_count
+                ),
+
+                particle_id=(
+                    particle_id
+                ),
             )
+
 
             self._particles.append(
                 species
@@ -141,31 +208,41 @@ class SpeciesRegistry:
 
 
         # ====================================================
-        # Concentration field species
+        # Continuous concentration-field species
         # ====================================================
 
-        else:
+        elif (
+            representation
+            is Representation.FIELD
+        ):
 
             if (
                 "initial_count"
                 in definition
             ):
+
                 raise ValueError(
                     f"{name}: field species cannot define "
-                    f"initial_count"
+                    "initial_count"
                 )
+
 
             initial_concentration = float(
                 definition.get(
                     "initial_concentration_mM",
-                    0.0
+                    0.0,
                 )
             )
 
-            if initial_concentration < 0:
+
+            if (
+                initial_concentration
+                < 0
+            ):
 
                 raise ValueError(
-                    f"{name}: concentration cannot be negative"
+                    f"{name}: concentration "
+                    "cannot be negative"
                 )
 
 
@@ -173,28 +250,131 @@ class SpeciesRegistry:
                 self._fields
             )
 
+
             species = Species(
                 name=name,
-                representation=representation,
-                diffusion_um2_s=diffusion,
+
+                representation=(
+                    representation
+                ),
+
+                diffusion_um2_s=(
+                    diffusion
+                ),
+
                 initial_concentration_mM=(
                     initial_concentration
                 ),
-                field_id=field_id,
+
+                field_id=(
+                    field_id
+                ),
             )
+
 
             self._fields.append(
                 species
             )
 
 
-        self._by_name[name] = species
+        # ====================================================
+        # Integer voxel-count species
+        #
+        # Example:
+        #
+        # voxel 812:
+        #     free ribosomes = 7
+        #
+        # Individual molecules have no persistent identity.
+        # ====================================================
+
+        elif (
+            representation
+            is Representation.VOXEL_COUNT
+        ):
+
+            if (
+                "initial_concentration_mM"
+                in definition
+            ):
+
+                raise ValueError(
+                    f"{name}: voxel_count species cannot "
+                    "define initial_concentration_mM"
+                )
 
 
-    def get(self, name):
+            initial_count = int(
+                definition.get(
+                    "initial_count",
+                    0,
+                )
+            )
+
+
+            if initial_count < 0:
+
+                raise ValueError(
+                    f"{name}: initial_count "
+                    "cannot be negative"
+                )
+
+
+            voxel_count_id = len(
+                self._voxel_counts
+            )
+
+
+            species = Species(
+                name=name,
+
+                representation=(
+                    representation
+                ),
+
+                diffusion_um2_s=(
+                    diffusion
+                ),
+
+                initial_count=(
+                    initial_count
+                ),
+
+                voxel_count_id=(
+                    voxel_count_id
+                ),
+            )
+
+
+            self._voxel_counts.append(
+                species
+            )
+
+
+        else:
+
+            raise ValueError(
+                f"Unsupported representation: "
+                f"{representation}"
+            )
+
+
+        self._by_name[
+            name
+        ] = species
+
+
+    def get(
+        self,
+        name,
+    ):
 
         try:
-            return self._by_name[name]
+
+            return self._by_name[
+                name
+            ]
+
 
         except KeyError:
 
@@ -205,6 +385,7 @@ class SpeciesRegistry:
 
     @property
     def particle_species(self):
+
         return tuple(
             self._particles
         )
@@ -212,13 +393,23 @@ class SpeciesRegistry:
 
     @property
     def field_species(self):
+
         return tuple(
             self._fields
         )
 
 
     @property
+    def voxel_count_species(self):
+
+        return tuple(
+            self._voxel_counts
+        )
+
+
+    @property
     def particle_count(self):
+
         return len(
             self._particles
         )
@@ -226,13 +417,23 @@ class SpeciesRegistry:
 
     @property
     def field_count(self):
+
         return len(
             self._fields
         )
 
 
     @property
+    def voxel_count_count(self):
+
+        return len(
+            self._voxel_counts
+        )
+
+
+    @property
     def total_species(self):
+
         return len(
             self._by_name
         )
@@ -242,10 +443,13 @@ class SpeciesRegistry:
     def fastest_diffusion_um2_s(self):
 
         if not self._by_name:
+
             return 0.0
+
 
         return max(
             species.diffusion_um2_s
+
             for species
             in self._by_name.values()
         )
@@ -257,20 +461,30 @@ class SpeciesRegistry:
         print("SPECIES REGISTRY")
         print("--------------------------------------------")
 
+
         print(
             f"Total species:              "
             f"{self.total_species:,}"
         )
+
 
         print(
             f"Particle species:           "
             f"{self.particle_count:,}"
         )
 
+
         print(
             f"Field species:              "
             f"{self.field_count:,}"
         )
+
+
+        print(
+            f"Voxel-count species:        "
+            f"{self.voxel_count_count:,}"
+        )
+
 
         print(
             f"Fastest diffusion D:        "
@@ -282,7 +496,10 @@ class SpeciesRegistry:
         print("PARTICLE SPECIES")
         print("--------------------------------------------")
 
-        for species in self._particles:
+
+        for species in (
+            self._particles
+        ):
 
             print(
                 f"{species.particle_id:5d}  "
@@ -296,11 +513,32 @@ class SpeciesRegistry:
         print("FIELD SPECIES")
         print("--------------------------------------------")
 
-        for species in self._fields:
+
+        for species in (
+            self._fields
+        ):
 
             print(
                 f"{species.field_id:5d}  "
                 f"{species.name:24s} "
-                f"initial={species.initial_concentration_mM:<8.3f} mM "
+                f"initial="
+                f"{species.initial_concentration_mM:<8.3f} mM "
+                f"D={species.diffusion_um2_s:.3f}"
+            )
+
+
+        print()
+        print("VOXEL-COUNT SPECIES")
+        print("--------------------------------------------")
+
+
+        for species in (
+            self._voxel_counts
+        ):
+
+            print(
+                f"{species.voxel_count_id:5d}  "
+                f"{species.name:24s} "
+                f"count={species.initial_count:<8d} "
                 f"D={species.diffusion_um2_s:.3f}"
             )

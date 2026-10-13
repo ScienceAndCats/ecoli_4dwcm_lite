@@ -30,12 +30,6 @@ float random01(
 }
 
 
-/*
-Reserve exactly one slot in an occupancy array.
-
-atomicCAS prevents two GPU threads from claiming
-the same slot at the same time.
-*/
 __device__ __forceinline__
 bool reserve_slot(
     unsigned int* occupancy,
@@ -48,49 +42,105 @@ bool reserve_slot(
     {
         unsigned int old =
             atomicAdd(
-                &occupancy[voxel],
+                &occupancy[
+                    voxel
+                ],
                 0U
             );
 
-        if (old >= capacity)
+
+        if (
+            old >= capacity
+        )
         {
             return false;
         }
 
-        unsigned int previous =
+
+        if (
             atomicCAS(
-                &occupancy[voxel],
+                &occupancy[
+                    voxel
+                ],
                 old,
                 old + 1
-            );
-
-        if (previous == old)
+            )
+            == old
+        )
         {
             *slot_out = old;
+
             return true;
         }
     }
 }
 
 
-/*
-Try to place a particle into a destination voxel.
+__device__ __forceinline__
+bool reserve_physical_volume(
 
-Order:
+    int destination,
 
-1. destination primary
-2. destination spill
-3. original/source primary
-4. original/source spill
+    float molecule_volume_nm3,
 
-That third/fourth fallback means that if the destination
-happens to fill up during a diffusion step, the particle
-can simply reject the move and remain where it was.
+    const float* occupied_volume_nm3,
+    float* reserved_incoming_nm3,
 
-hard_overflow should therefore be extremely unusual.
-*/
+    float voxel_volume_nm3
+)
+{
+    if (
+        molecule_volume_nm3
+        <= 0.0f
+    )
+    {
+        return true;
+    }
+
+
+    float previous_reserved =
+        atomicAdd(
+            &reserved_incoming_nm3[
+                destination
+            ],
+
+            molecule_volume_nm3
+        );
+
+
+    float resulting_volume =
+        occupied_volume_nm3[
+            destination
+        ]
+        + previous_reserved
+        + molecule_volume_nm3;
+
+
+    if (
+        resulting_volume
+        <= voxel_volume_nm3
+    )
+    {
+        return true;
+    }
+
+
+    atomicAdd(
+        &reserved_incoming_nm3[
+            destination
+        ],
+
+        -molecule_volume_nm3
+    );
+
+
+    return false;
+}
+
+
 __device__ __forceinline__
 void place_particle(
+
     unsigned short species,
 
     int destination_voxel,
@@ -103,7 +153,7 @@ void place_particle(
     unsigned int* spill_occ_out,
 
     unsigned long long* spill_writes,
-    unsigned long long* rejected_moves,
+    unsigned long long* slot_rejected_moves,
     unsigned long long* hard_overflow,
 
     int primary_slots,
@@ -112,10 +162,6 @@ void place_particle(
 {
     unsigned int slot;
 
-
-    // ========================================================
-    // Try destination primary storage
-    // ========================================================
 
     if (
         reserve_slot(
@@ -135,10 +181,6 @@ void place_particle(
         return;
     }
 
-
-    // ========================================================
-    // Try destination spill storage
-    // ========================================================
 
     if (
         reserve_slot(
@@ -164,17 +206,13 @@ void place_particle(
     }
 
 
-    // ========================================================
-    // Destination full.
-    //
-    // Reject the move and try to put the particle back into
-    // its source voxel.
-    // ========================================================
-
-    if (destination_voxel != source_voxel)
+    if (
+        destination_voxel
+        != source_voxel
+    )
     {
         atomicAdd(
-            rejected_moves,
+            slot_rejected_moves,
             1ULL
         );
 
@@ -223,12 +261,6 @@ void place_particle(
     }
 
 
-    // ========================================================
-    // Both destination and source have no capacity.
-    //
-    // This is treated as a simulation error.
-    // ========================================================
-
     atomicAdd(
         hard_overflow,
         1ULL
@@ -237,8 +269,133 @@ void place_particle(
 
 
 /*
-Diffuse particles currently stored in PRIMARY slots.
+Apply:
+
+    1. soft crowding accessibility
+    2. hard physical-volume exclusion
+
+Returns the actual destination.
 */
+__device__ __forceinline__
+int evaluate_destination(
+
+    int source_voxel,
+    int proposed_destination,
+
+    unsigned short species,
+
+    const float* movement_accessibility,
+
+    const float* species_volume_nm3,
+
+    const float* occupied_volume_nm3,
+
+    float* reserved_incoming_nm3,
+
+    float voxel_volume_nm3,
+
+    int use_crowding,
+    int use_capacity,
+
+    unsigned long long key,
+
+    unsigned long long* crowding_rejections,
+    unsigned long long* capacity_rejections
+)
+{
+    if (
+        proposed_destination
+        == source_voxel
+    )
+    {
+        return source_voxel;
+    }
+
+
+    #pragma unroll
+    for (
+        int dummy = 0;
+        dummy < 1;
+        dummy++
+    )
+    {
+        if (
+            use_crowding
+            != 0
+        )
+        {
+            float accessibility =
+                movement_accessibility[
+                    proposed_destination
+                ];
+
+
+            float r =
+                random01(
+                    key
+                    ^ 0x4f1bbcdc67657a35ULL
+                );
+
+
+            if (
+                r
+                >= accessibility
+            )
+            {
+                atomicAdd(
+                    crowding_rejections,
+                    1ULL
+                );
+
+                return source_voxel;
+            }
+        }
+
+
+        if (
+            use_capacity
+            != 0
+        )
+        {
+            float molecule_volume =
+                species_volume_nm3[
+                    species
+                ];
+
+
+            bool fits =
+                reserve_physical_volume(
+                    proposed_destination,
+
+                    molecule_volume,
+
+                    occupied_volume_nm3,
+
+                    reserved_incoming_nm3,
+
+                    voxel_volume_nm3
+                );
+
+
+            if (
+                !fits
+            )
+            {
+                atomicAdd(
+                    capacity_rejections,
+                    1ULL
+                );
+
+                return source_voxel;
+            }
+        }
+    }
+
+
+    return proposed_destination;
+}
+
+
 extern "C" __global__
 void diffuse_primary(
 
@@ -254,15 +411,29 @@ void diffuse_primary(
     const int* neighbors,
 
     const float* direction_probability,
+    const float* movement_accessibility,
+
+    const float* species_volume_nm3,
+
+    const float* occupied_volume_nm3,
+
+    float* reserved_incoming_nm3,
 
     unsigned long long* spill_writes,
-    unsigned long long* rejected_moves,
+    unsigned long long* slot_rejected_moves,
     unsigned long long* hard_overflow,
+    unsigned long long* crowding_rejections,
+    unsigned long long* capacity_rejections,
 
     int primary_slots,
     int spill_slots,
 
     long long nvox,
+
+    float voxel_volume_nm3,
+
+    int use_crowding,
+    int use_capacity,
 
     unsigned long long seed,
     unsigned long long step
@@ -273,25 +444,35 @@ void diffuse_primary(
         * blockDim.x
         + threadIdx.x;
 
+
     long long total =
         nvox
         * (long long)primary_slots;
 
-    if (idx >= total)
+
+    if (
+        idx >= total
+    )
     {
         return;
     }
 
 
     int voxel =
-        idx / primary_slots;
+        idx
+        / primary_slots;
+
 
     int slot =
-        idx % primary_slots;
+        idx
+        % primary_slots;
 
 
     if (
-        slot >= primary_occ_in[voxel]
+        slot
+        >= primary_occ_in[
+            voxel
+        ]
     )
     {
         return;
@@ -299,9 +480,14 @@ void diffuse_primary(
 
 
     unsigned short species =
-        primary_in[idx];
+        primary_in[
+            idx
+        ];
 
-    if (species == 0)
+
+    if (
+        species == 0
+    )
     {
         return;
     }
@@ -311,9 +497,6 @@ void diffuse_primary(
         direction_probability[
             species
         ];
-
-    float total_hop_probability =
-        6.0f * q;
 
 
     unsigned long long key =
@@ -331,7 +514,10 @@ void diffuse_primary(
 
 
     float r =
-        random01(key);
+        random01(
+            key
+        );
+
 
     int destination =
         voxel;
@@ -340,7 +526,7 @@ void diffuse_primary(
     if (
         q > 0.0f
         &&
-        r < total_hop_probability
+        r < 6.0f * q
     )
     {
         int direction =
@@ -348,16 +534,47 @@ void diffuse_primary(
                 r / q
             );
 
-        if (direction > 5)
+
+        if (
+            direction > 5
+        )
         {
             direction = 5;
         }
 
-        destination =
+
+        int proposed =
             neighbors[
                 voxel * 6
                 + direction
             ];
+
+
+        destination =
+            evaluate_destination(
+                voxel,
+                proposed,
+
+                species,
+
+                movement_accessibility,
+
+                species_volume_nm3,
+
+                occupied_volume_nm3,
+
+                reserved_incoming_nm3,
+
+                voxel_volume_nm3,
+
+                use_crowding,
+                use_capacity,
+
+                key,
+
+                crowding_rejections,
+                capacity_rejections
+            );
     }
 
 
@@ -374,7 +591,7 @@ void diffuse_primary(
         spill_occ_out,
 
         spill_writes,
-        rejected_moves,
+        slot_rejected_moves,
         hard_overflow,
 
         primary_slots,
@@ -383,9 +600,6 @@ void diffuse_primary(
 }
 
 
-/*
-Diffuse particles currently stored in SPILL slots.
-*/
 extern "C" __global__
 void diffuse_spill(
 
@@ -401,15 +615,29 @@ void diffuse_spill(
     const int* neighbors,
 
     const float* direction_probability,
+    const float* movement_accessibility,
+
+    const float* species_volume_nm3,
+
+    const float* occupied_volume_nm3,
+
+    float* reserved_incoming_nm3,
 
     unsigned long long* spill_writes,
-    unsigned long long* rejected_moves,
+    unsigned long long* slot_rejected_moves,
     unsigned long long* hard_overflow,
+    unsigned long long* crowding_rejections,
+    unsigned long long* capacity_rejections,
 
     int primary_slots,
     int spill_slots,
 
     long long nvox,
+
+    float voxel_volume_nm3,
+
+    int use_crowding,
+    int use_capacity,
 
     unsigned long long seed,
     unsigned long long step
@@ -420,25 +648,35 @@ void diffuse_spill(
         * blockDim.x
         + threadIdx.x;
 
+
     long long total =
         nvox
         * (long long)spill_slots;
 
-    if (idx >= total)
+
+    if (
+        idx >= total
+    )
     {
         return;
     }
 
 
     int voxel =
-        idx / spill_slots;
+        idx
+        / spill_slots;
+
 
     int slot =
-        idx % spill_slots;
+        idx
+        % spill_slots;
 
 
     if (
-        slot >= spill_occ_in[voxel]
+        slot
+        >= spill_occ_in[
+            voxel
+        ]
     )
     {
         return;
@@ -446,9 +684,14 @@ void diffuse_spill(
 
 
     unsigned short species =
-        spill_in[idx];
+        spill_in[
+            idx
+        ];
 
-    if (species == 0)
+
+    if (
+        species == 0
+    )
     {
         return;
     }
@@ -458,9 +701,6 @@ void diffuse_spill(
         direction_probability[
             species
         ];
-
-    float total_hop_probability =
-        6.0f * q;
 
 
     unsigned long long key =
@@ -478,7 +718,10 @@ void diffuse_spill(
 
 
     float r =
-        random01(key);
+        random01(
+            key
+        );
+
 
     int destination =
         voxel;
@@ -487,7 +730,7 @@ void diffuse_spill(
     if (
         q > 0.0f
         &&
-        r < total_hop_probability
+        r < 6.0f * q
     )
     {
         int direction =
@@ -495,16 +738,47 @@ void diffuse_spill(
                 r / q
             );
 
-        if (direction > 5)
+
+        if (
+            direction > 5
+        )
         {
             direction = 5;
         }
 
-        destination =
+
+        int proposed =
             neighbors[
                 voxel * 6
                 + direction
             ];
+
+
+        destination =
+            evaluate_destination(
+                voxel,
+                proposed,
+
+                species,
+
+                movement_accessibility,
+
+                species_volume_nm3,
+
+                occupied_volume_nm3,
+
+                reserved_incoming_nm3,
+
+                voxel_volume_nm3,
+
+                use_crowding,
+                use_capacity,
+
+                key,
+
+                crowding_rejections,
+                capacity_rejections
+            );
     }
 
 
@@ -521,7 +795,7 @@ void diffuse_spill(
         spill_occ_out,
 
         spill_writes,
-        rejected_moves,
+        slot_rejected_moves,
         hard_overflow,
 
         primary_slots,
