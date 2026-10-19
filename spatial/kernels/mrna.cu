@@ -36,6 +36,7 @@ void degrade_mrna(
     unsigned int* active,
     int* template_index,
     int* voxel_id,
+    unsigned int* bound_ribosomes,
 
     const float* degradation_rates,
 
@@ -75,13 +76,36 @@ void degrade_mrna(
     }
 
 
+    /*
+    Temporary simplified rule:
+
+        actively translating mRNA is protected from
+        degradation.
+
+    Later we can replace this with explicit ribosome runoff
+    or co-translational degradation.
+    */
+
+    if (
+        bound_ribosomes[
+            index
+        ]
+        != 0U
+    )
+    {
+        return;
+    }
+
+
     int template_id =
         template_index[
             index
         ];
 
 
-    if (template_id < 0)
+    if (
+        template_id < 0
+    )
     {
         return;
     }
@@ -93,7 +117,9 @@ void degrade_mrna(
         ];
 
 
-    if (rate <= 0.0f)
+    if (
+        rate <= 0.0f
+    )
     {
         return;
     }
@@ -136,6 +162,7 @@ void degrade_mrna(
         &degraded_by_template[
             template_id
         ],
+
         1ULL
     );
 
@@ -154,6 +181,11 @@ void degrade_mrna(
     voxel_id[
         index
     ] = -1;
+
+
+    bound_ribosomes[
+        index
+    ] = 0U;
 
 
     __threadfence();

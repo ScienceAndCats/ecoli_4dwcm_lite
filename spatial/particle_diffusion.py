@@ -23,11 +23,16 @@ class ParticleDiffusion:
         seed: int,
         crowding_state: CrowdingState | None = None,
         effective_volumes=None,
+        crowding_synchronizer=None,
     ):
 
-        self.state = particle_state
+        self.state = (
+            particle_state
+        )
 
-        self.spatial = spatial_config
+        self.spatial = (
+            spatial_config
+        )
 
         self.base_dt_s = float(
             base_dt_s
@@ -38,6 +43,71 @@ class ParticleDiffusion:
         )
 
         self.step_count = 0
+
+
+        self.crowding_synchronizer = (
+            crowding_synchronizer
+        )
+
+
+        # ====================================================
+        # Synchronizer supplies crowding state + volume registry
+        # when they are not supplied separately.
+        # ====================================================
+
+        if (
+            crowding_synchronizer
+            is not None
+        ):
+
+            if (
+                crowding_state
+                is None
+            ):
+
+                crowding_state = (
+                    crowding_synchronizer
+                    .crowding_state
+                )
+
+
+            elif (
+                crowding_state
+                is not
+                crowding_synchronizer
+                .crowding_state
+            ):
+
+                raise ValueError(
+                    "Particle diffusion and crowding "
+                    "synchronizer use different "
+                    "CrowdingState objects."
+                )
+
+
+            if (
+                effective_volumes
+                is None
+            ):
+
+                effective_volumes = (
+                    crowding_synchronizer
+                    .effective_volumes
+                )
+
+
+            elif (
+                effective_volumes
+                is not
+                crowding_synchronizer
+                .effective_volumes
+            ):
+
+                raise ValueError(
+                    "Particle diffusion and crowding "
+                    "synchronizer use different "
+                    "effective-volume registries."
+                )
 
 
         self.crowding_state = (
@@ -77,9 +147,7 @@ class ParticleDiffusion:
 
 
         # ====================================================
-        # Particle effective-volume lookup
-        #
-        # ID 0 is the empty slot and therefore volume zero.
+        # Particle volume lookup
         # ====================================================
 
         if (
@@ -164,10 +232,6 @@ class ParticleDiffusion:
             dtype=cp.uint64,
         )
 
-
-        # ====================================================
-        # Physical-volume reservation buffer
-        # ====================================================
 
         self.reserved_incoming_nm3 = cp.zeros(
             self.state.cell_voxels,
@@ -280,10 +344,6 @@ class ParticleDiffusion:
         return probabilities
 
 
-    # ========================================================
-    # Launch helper
-    # ========================================================
-
     @classmethod
     def _blocks(
         cls,
@@ -322,10 +382,6 @@ class ParticleDiffusion:
             0
         )
 
-
-        # ====================================================
-        # Crowding data
-        # ====================================================
 
         if (
             self.crowding_state
@@ -391,7 +447,7 @@ class ParticleDiffusion:
 
 
         # ====================================================
-        # Primary
+        # Primary buffer
         # ====================================================
 
         self._diffuse_primary(
@@ -471,7 +527,7 @@ class ParticleDiffusion:
 
 
         # ====================================================
-        # Spill
+        # Spill buffer
         # ====================================================
 
         if (
@@ -555,6 +611,21 @@ class ParticleDiffusion:
 
 
         state.swap_buffers()
+
+
+        # ====================================================
+        # Particle locations changed.
+        #
+        # Rebuild dynamic occupancy immediately.
+        # ====================================================
+
+        if (
+            self.crowding_synchronizer
+            is not None
+        ):
+
+            self.crowding_synchronizer.rebuild_dynamic()
+
 
         self.step_count += 1
 
@@ -658,6 +729,14 @@ class ParticleDiffusion:
 
 
         if (
+            self.crowding_synchronizer
+            is not None
+        ):
+
+            self.crowding_synchronizer.validate()
+
+
+        elif (
             self.crowding_state
             is not None
         ):

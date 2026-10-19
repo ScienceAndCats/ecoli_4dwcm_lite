@@ -1,0 +1,46 @@
+species:
+
+  ATP:
+    representation: field
+    diffusion_um2_s: 0.5
+    initial_concentration_mM: 3.0
+
+
+  example_TF:
+    representation: particle
+    diffusion_um2_s: 0.2
+    initial_count: 0
+
+
+  RNAP:
+    representation: particle
+    diffusion_um2_s: 0.15
+    initial_count: 0
+
+
+  Ribosome:
+    representation: voxel_count
+    diffusion_um2_s: 0.05
+    initial_count: 100
+
+
+  # Protein made from TEST_0001.
+  #
+  # Explicit particle representation demonstrates production
+  # of low-copy / identity-relevant proteins.
+
+  ProteinA:
+    representation: particle
+    diffusion_um2_s: 0.15
+    initial_count: 0
+
+
+  # Protein made from TEST_0002.
+  #
+  # Voxel-count representation demonstrates production of an
+  # abundant discrete protein without individual identities.
+
+  ProteinB:
+    representation: voxel_count
+    diffusion_um2_s: 0.15
+    initial_count: 0

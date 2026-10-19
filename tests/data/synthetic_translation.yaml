@@ -1,0 +1,34 @@
+translation:
+
+  ribosome_species: Ribosome
+
+  complex_volume_name: test_translation_complex
+
+  max_active_complexes: 64
+
+
+  # Deliberately fast unit-test values.
+  #
+  # These are NOT biological calibration.
+
+  default_ribosome_binding_rate_M_inv_s: 1000000000.0
+
+  default_elongation_aa_per_s: 1000.0
+
+  ribosome_footprint_nt: 30
+
+
+  templates:
+
+    - locus_tag: TEST_0001
+
+      product_species: ProteinA
+
+      # Artificial override so our tiny synthetic mRNA can
+      # demonstrate polysomes.
+      max_ribosomes_per_mrna: 3
+
+
+    - locus_tag: TEST_0002
+
+      product_species: ProteinB

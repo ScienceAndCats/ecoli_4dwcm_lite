@@ -17,9 +17,13 @@ class MRNAState:
         active[index]
         template_index[index]
         voxel_id[index]
+        bound_ribosomes[index]
 
-    The transcription engine creates these directly at the
+    The transcription engine creates mRNAs directly at the
     voxel containing the transcribed gene's 3' end.
+
+    bound_ribosomes tracks how many translating ribosomes
+    currently reference each individual mRNA.
     """
 
     def __init__(
@@ -30,16 +34,21 @@ class MRNAState:
     ):
 
         if template_count <= 0:
+
             raise ValueError(
                 "template_count must be > 0"
             )
 
+
         if cell_voxels <= 0:
+
             raise ValueError(
                 "cell_voxels must be > 0"
             )
 
+
         if max_molecules <= 0:
+
             raise ValueError(
                 "max_molecules must be > 0"
             )
@@ -49,18 +58,26 @@ class MRNAState:
             template_count
         )
 
+
         self.cell_voxels = int(
             cell_voxels
         )
+
 
         self.max_molecules = int(
             max_molecules
         )
 
 
-        # 0 = free slot
-        # 1 = active mRNA
-        # 2 = temporarily reserved by a CUDA kernel
+        # ====================================================
+        # mRNA state
+        #
+        # active:
+        #
+        #   0 = free slot
+        #   1 = active mRNA
+        #   2 = temporarily reserved by CUDA
+        # ====================================================
 
         self.active = cp.zeros(
             self.max_molecules,
@@ -82,12 +99,35 @@ class MRNAState:
         )
 
 
+        # Number of ribosomes currently translating this mRNA.
+
+        self.bound_ribosomes = cp.zeros(
+            self.max_molecules,
+            dtype=cp.uint32,
+        )
+
+
+    # ========================================================
+    # Summary
+    # ========================================================
+
     @property
     def active_count(self):
 
         return int(
             cp.count_nonzero(
                 self.active == 1
+            ).item()
+        )
+
+
+    @property
+    def total_bound_ribosomes(self):
+
+        return int(
+            cp.sum(
+                self.bound_ribosomes,
+                dtype=cp.uint64,
             ).item()
         )
 
@@ -100,6 +140,10 @@ class MRNAState:
             - self.active_count
         )
 
+
+    # ========================================================
+    # Template summaries
+    # ========================================================
 
     def template_counts(self):
 
@@ -171,10 +215,14 @@ class MRNAState:
         )
 
 
+    # ========================================================
+    # Validation
+    # ========================================================
+
     def validate(self):
 
-        # Reserved state must not persist between completed
-        # CUDA operations.
+        # Reserved state must not persist after a completed
+        # operation.
 
         if bool(
             cp.any(
@@ -190,6 +238,12 @@ class MRNAState:
         mask = (
             self.active
             == 1
+        )
+
+
+        inactive = (
+            self.active
+            == 0
         )
 
 
@@ -249,8 +303,26 @@ class MRNAState:
             )
 
 
+        if bool(
+            cp.any(
+                self.bound_ribosomes[
+                    inactive
+                ]
+                != 0
+            ).item()
+        ):
+
+            raise RuntimeError(
+                "Inactive mRNA retains bound ribosomes."
+            )
+
+
         return True
 
+
+    # ========================================================
+    # Description
+    # ========================================================
 
     def describe(self):
 
@@ -258,15 +330,24 @@ class MRNAState:
         print("mRNA STATE")
         print("--------------------------------------------")
 
+
         print(
             f"Active mRNAs:               "
             f"{self.active_count:,}"
         )
 
+
+        print(
+            f"Bound ribosomes:            "
+            f"{self.total_bound_ribosomes:,}"
+        )
+
+
         print(
             f"Maximum mRNAs:              "
             f"{self.max_molecules:,}"
         )
+
 
         print(
             f"Free capacity:              "
@@ -277,6 +358,16 @@ class MRNAState:
 class MRNADegradationEngine:
     """
     Stochastic first-order degradation of individual mRNAs.
+
+    Temporary translation-safety rule:
+
+        mRNA with one or more actively bound ribosomes
+        cannot currently degrade.
+
+    This prevents dangling translation-complex references.
+
+    A more realistic bacterial co-translational mRNA-decay
+    model can replace this rule later.
     """
 
     THREADS = 256
@@ -293,9 +384,11 @@ class MRNADegradationEngine:
             mrna_state
         )
 
+
         self.seed = int(
             seed
         )
+
 
         self.step_count = 0
 
@@ -357,6 +450,7 @@ class MRNADegradationEngine:
 
         module = cp.RawModule(
             code=source,
+
             options=(
                 "--std=c++11",
             ),
@@ -418,6 +512,7 @@ class MRNADegradationEngine:
                 state.active,
                 state.template_index,
                 state.voxel_id,
+                state.bound_ribosomes,
 
                 self.degradation_rates,
 
@@ -503,10 +598,12 @@ class MRNADegradationEngine:
         print("mRNA DEGRADATION")
         print("--------------------------------------------")
 
+
         print(
             f"Degradation steps:          "
             f"{self.step_count:,}"
         )
+
 
         print(
             f"Degradation events:         "

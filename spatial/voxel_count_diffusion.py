@@ -29,6 +29,7 @@ class VoxelCountDiffusion:
         seed: int,
         crowding_state: CrowdingState | None = None,
         effective_volumes=None,
+        crowding_synchronizer=None,
     ):
 
         self.state = (
@@ -59,6 +60,71 @@ class VoxelCountDiffusion:
                 "Voxel-count diffusion timestep "
                 "must be > 0."
             )
+
+
+        self.crowding_synchronizer = (
+            crowding_synchronizer
+        )
+
+
+        # ====================================================
+        # If a synchronizer is supplied, use the crowding
+        # state and effective-volume registry attached to it.
+        # ====================================================
+
+        if (
+            crowding_synchronizer
+            is not None
+        ):
+
+            if (
+                crowding_state
+                is None
+            ):
+
+                crowding_state = (
+                    crowding_synchronizer
+                    .crowding_state
+                )
+
+
+            elif (
+                crowding_state
+                is not
+                crowding_synchronizer
+                .crowding_state
+            ):
+
+                raise ValueError(
+                    "Voxel-count diffusion and crowding "
+                    "synchronizer use different "
+                    "CrowdingState objects."
+                )
+
+
+            if (
+                effective_volumes
+                is None
+            ):
+
+                effective_volumes = (
+                    crowding_synchronizer
+                    .effective_volumes
+                )
+
+
+            elif (
+                effective_volumes
+                is not
+                crowding_synchronizer
+                .effective_volumes
+            ):
+
+                raise ValueError(
+                    "Voxel-count diffusion and crowding "
+                    "synchronizer use different "
+                    "effective-volume registries."
+                )
 
 
         self.crowding_state = (
@@ -168,19 +234,11 @@ class VoxelCountDiffusion:
         )
 
 
-        # ====================================================
-        # Per-step physical-volume reservations
-        # ====================================================
-
         self.reserved_incoming_nm3 = cp.zeros(
             self.state.cell_voxels,
             dtype=cp.float32,
         )
 
-
-        # ====================================================
-        # Dummy arrays used when crowding/capacity are disabled
-        # ====================================================
 
         self._dummy_accessibility = cp.ones(
             1,
@@ -195,7 +253,7 @@ class VoxelCountDiffusion:
 
 
         # ====================================================
-        # CUDA kernel
+        # CUDA
         # ====================================================
 
         kernel_path = (
@@ -276,10 +334,6 @@ class VoxelCountDiffusion:
         return probabilities
 
 
-    # ========================================================
-    # Launch helpers
-    # ========================================================
-
     @classmethod
     def _blocks(
         cls,
@@ -299,7 +353,7 @@ class VoxelCountDiffusion:
 
 
     # ========================================================
-    # One diffusion step
+    # One step
     # ========================================================
 
     def step(
@@ -333,10 +387,6 @@ class VoxelCountDiffusion:
             0
         )
 
-
-        # ====================================================
-        # Crowding inputs
-        # ====================================================
 
         if (
             self.crowding_state
@@ -380,13 +430,6 @@ class VoxelCountDiffusion:
 
             use_crowding = 0
 
-
-        # ====================================================
-        # Hard capacity is active only when BOTH:
-        #
-        #     crowding state exists
-        #     effective molecular volumes exist
-        # ====================================================
 
         use_capacity = int(
             self.crowding_state
@@ -467,6 +510,22 @@ class VoxelCountDiffusion:
 
         state.swap_buffers()
 
+
+        # ====================================================
+        # Molecules have moved.
+        #
+        # Immediately rebuild dynamic occupancy from their
+        # new positions.
+        # ====================================================
+
+        if (
+            self.crowding_synchronizer
+            is not None
+        ):
+
+            self.crowding_synchronizer.rebuild_dynamic()
+
+
         self.step_count += 1
 
 
@@ -537,6 +596,10 @@ class VoxelCountDiffusion:
         )
 
 
+    # ========================================================
+    # Validation
+    # ========================================================
+
     def validate(self):
 
         self.state.validate(
@@ -545,6 +608,14 @@ class VoxelCountDiffusion:
 
 
         if (
+            self.crowding_synchronizer
+            is not None
+        ):
+
+            self.crowding_synchronizer.validate()
+
+
+        elif (
             self.crowding_state
             is not None
         ):
@@ -554,6 +625,10 @@ class VoxelCountDiffusion:
 
         return True
 
+
+    # ========================================================
+    # Summary
+    # ========================================================
 
     def describe(self):
 

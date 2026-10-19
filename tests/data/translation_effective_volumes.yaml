@@ -1,0 +1,32 @@
+effective_volumes:
+
+  species:
+
+    example_TF:
+      effective_volume_nm3: 100.0
+
+    RNAP:
+      effective_volume_nm3: 1000.0
+
+    Ribosome:
+      effective_volume_nm3: 8000.0
+
+    ProteinA:
+      effective_volume_nm3: 500.0
+
+    ProteinB:
+      effective_volume_nm3: 500.0
+
+
+  complexes:
+
+    # Chosen so:
+    #
+    # free ribosome + finished test protein
+    #
+    # 8000 + 500 = 8500 nm^3
+    #
+    # This is a unit-test value, not biological calibration.
+
+    test_translation_complex:
+      effective_volume_nm3: 8500.0
