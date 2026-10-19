@@ -37,6 +37,7 @@ class CheckpointManager:
             output_dir
         )
 
+
         self.checkpoint_dir = (
             self.output_dir
             / "checkpoints"
@@ -92,9 +93,11 @@ class CheckpointManager:
             engine.particle_state
         )
 
+
         fields = (
             engine.field_state
         )
+
 
         reactions = (
             engine.reaction_engine
@@ -257,6 +260,12 @@ class CheckpointManager:
                     else 0
                 ),
 
+            # Keep the metadata key name unchanged so existing
+            # format-version-1 checkpoints remain compatible.
+            #
+            # Internally this now represents slot-capacity
+            # rejected moves.
+
             "particle_diffusion_rejected_moves":
                 int(
                     engine.particle_diffusion.rejected_move_count
@@ -319,8 +328,7 @@ class CheckpointManager:
 
 
         # ====================================================
-        # Atomic-ish finalization:
-        # only expose the final directory after all files exist.
+        # Atomic-ish finalization
         # ====================================================
 
         if final_path.exists():
@@ -560,21 +568,31 @@ class CheckpointManager:
             )
 
 
-            engine.particle_diffusion.spill_writes[0] = np.uint64(
+            engine.particle_diffusion.spill_writes[
+                0
+            ] = np.uint64(
                 metadata[
                     "particle_diffusion_spill_writes"
                 ]
             )
 
 
-            engine.particle_diffusion.rejected_moves[0] = np.uint64(
+            # The old checkpoint field is retained, but the
+            # corresponding ParticleDiffusion array is now
+            # named slot_rejected_moves.
+
+            engine.particle_diffusion.slot_rejected_moves[
+                0
+            ] = np.uint64(
                 metadata[
                     "particle_diffusion_rejected_moves"
                 ]
             )
 
 
-            engine.particle_diffusion.hard_overflow[0] = np.uint64(
+            engine.particle_diffusion.hard_overflow[
+                0
+            ] = np.uint64(
                 metadata[
                     "particle_diffusion_hard_overflow"
                 ]
@@ -611,7 +629,9 @@ class CheckpointManager:
         )
 
 
-        for task in engine.scheduler.tasks:
+        for task in (
+            engine.scheduler.tasks
+        ):
 
             task.calls = int(
                 saved_calls.get(
