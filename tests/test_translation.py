@@ -685,7 +685,7 @@ def test_translation_crowding_replaces_free_ribosome_volume():
     volumes = EffectiveVolumeRegistry.from_yaml(
         path=(
             "tests/data/"
-            "effective_volumes.yaml"
+            "translation_effective_volumes.yaml"
         ),
 
         species_registry=species,
